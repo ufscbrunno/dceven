@@ -83,6 +83,15 @@
   .sync-status button:hover{ background:var(--brand-soft); }
   .sync-status button:focus-visible{ outline:2px solid var(--brand); outline-offset:1px; }
 
+  .week-nav{ display:flex; align-items:center; gap:6px; }
+  .week-nav button{ all:unset; cursor:pointer; display:flex; align-items:center; justify-content:center; min-height:38px; min-width:38px; padding:0 12px; border-radius:999px; font-size:12.5px; font-weight:700; color:var(--muted); border:1px solid var(--line); background:var(--paper-raised); transition:background .16s, color .16s, transform .12s; }
+  .week-nav button:hover{ background:var(--brand-soft); color:var(--ink); }
+  .week-nav button:active{ transform:scale(.94); }
+  .week-nav button:focus-visible{ outline:2px solid var(--brand); outline-offset:2px; }
+  .week-nav .wlabel{ font-weight:800; color:var(--ink); font-size:13px; min-width:112px; text-align:center; padding:0 4px; font-variant-numeric:tabular-nums; }
+  .week-nav .today-btn{ background:var(--brand); border-color:var(--brand); color:#fff; }
+  .week-nav .today-btn:hover{ background:var(--brand-strong); color:#fff; }
+
   .month-switch{ display:flex; gap:6px; overflow-x:auto; max-width:100%; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:4px; }
   .month-switch::-webkit-scrollbar{ display:none; }
   .month-switch:empty{ display:none; }
@@ -207,7 +216,7 @@
       <div class="word"><b>Ocupação de Espaços</b><span>DCEven · UFSC</span></div>
     </div>
     <nav id="tabnav">
-      <button data-view="resumo" aria-current="true"><span class="dot"></span>Resumo do Mês</button>
+      <button data-view="resumo" aria-current="true"><span class="dot"></span>Resumo da Semana</button>
       <button data-view="ocupacao"><span class="dot"></span>Mapa de Ocupação</button>
       <button data-view="eventos"><span class="dot"></span>Eventos &amp; Contatos</button>
       <button data-view="indicadores"><span class="dot"></span>Indicadores</button>
@@ -218,11 +227,12 @@
   <main class="main">
     <header class="top">
       <div>
-        <h1 id="pageTitle">Resumo do Mês</h1>
+        <h1 id="pageTitle">Resumo da Semana</h1>
         <div class="sub" id="periodSub"></div>
         <div class="sync-status" id="syncStatus"></div>
       </div>
-      <div class="month-switch" id="monthSwitch"></div>
+      <div class="week-nav" id="weekNav"></div>
+      <div class="month-switch" id="monthSwitch" style="display:none"></div>
     </header>
 
     <div id="stateScreen"></div>
@@ -232,11 +242,11 @@
       <div class="grid kpi-row" id="kpiRow"></div>
       <div class="grid two-col">
         <div class="card">
-          <h3>Agenda do mês</h3>
+          <h3>Agenda da semana</h3>
           <ul class="agenda" id="agendaList"></ul>
         </div>
         <div class="card">
-          <h3>Situação dos espaços no mês</h3>
+          <h3>Situação dos espaços na semana</h3>
           <div class="space-map" id="spaceMap"></div>
         </div>
       </div>
@@ -329,8 +339,11 @@ const NOW = new Date();
 let YEAR = 2026;
 let FEED = null;
 let byMonth = {};           // mes -> [records]
+let byKey = {};             // "mes-dia" -> [records]
 let months = [];            // sorted list of mes numbers present
 let currentMonth = null;
+let currentView = 'resumo';
+let weekStart = null;       // Date (segunda-feira 00:00) da semana exibida no Resumo
 let lastSyncAt = null;
 let refreshTimer = null;
 
@@ -338,6 +351,18 @@ function daysInMonth(year, mes){ return new Date(year, mes, 0).getDate(); }
 function weekdayOf(mes, dia){ return new Date(YEAR, mes-1, dia).getDay(); }
 function isToday(mes, dia){ return NOW.getFullYear()===YEAR && (NOW.getMonth()+1)===mes && NOW.getDate()===dia; }
 function spaceRank(nome){ const i = SPACE_ORDER.indexOf(nome); return i<0 ? 99 : i; }
+
+// segunda-feira da semana que contém `date`
+function mondayOf(date){
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const wd = d.getDay();               // 0=dom..6=sáb
+  const diff = (wd === 0 ? -6 : 1 - wd); // recua até segunda
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+function addDays(date, n){ const d = new Date(date); d.setDate(d.getDate()+n); return d; }
+function sameDay(a, b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function fmtDM(date){ return String(date.getDate()).padStart(2,'0') + '/' + String(date.getMonth()+1).padStart(2,'0'); }
 
 function statusRank(s){ return s==='evento' ? 2 : s==='manutencao' ? 1 : 0; }
 
@@ -478,16 +503,54 @@ async function loadData(manual){
 }
 
 function indexData(){
-  byMonth = {};
+  byMonth = {}; byKey = {};
   FEED.records.forEach(r=>{
     (byMonth[r.mes] = byMonth[r.mes] || []).push(r);
+    (byKey[r.mes + '-' + r.dia] = byKey[r.mes + '-' + r.dia] || []).push(r);
   });
   months = Object.keys(byMonth).map(Number).sort((a,b)=>a-b);
   if(!currentMonth || !byMonth[currentMonth]){
     const thisMonth = NOW.getMonth()+1;
     currentMonth = months.includes(thisMonth) ? thisMonth : (months[months.length-1] || thisMonth);
   }
+  if(!weekStart){
+    // semana atual, se dentro do ano dos dados; senão, a semana da 1ª atividade
+    if(NOW.getFullYear() === YEAR) weekStart = mondayOf(NOW);
+    else { const m = months[0] || 1; weekStart = mondayOf(new Date(YEAR, m-1, 1)); }
+  }
 }
+
+/* ---- agregações por semana ---- */
+// registros de um dia real (Date), só se pertencer ao ano dos dados
+function recordsForDate(date){
+  if(date.getFullYear() !== YEAR) return [];
+  return byKey[(date.getMonth()+1) + '-' + date.getDate()] || [];
+}
+// os 7 dias (seg..dom) da semana exibida, com seus registros
+function weekDays(){
+  const out = [];
+  for(let i=0; i<7; i++){
+    const d = addDays(weekStart, i);
+    out.push({date:d, mes:d.getMonth()+1, dia:d.getDate(), inYear:d.getFullYear()===YEAR, records:recordsForDate(d)});
+  }
+  return out;
+}
+function weekRecords(){
+  const all = [];
+  weekDays().forEach(d=> all.push.apply(all, d.records));
+  return all;
+}
+function weekLabel(){
+  const end = addDays(weekStart, 6);
+  const mesIgual = weekStart.getMonth() === end.getMonth();
+  const a = String(weekStart.getDate()).padStart(2,'0');
+  const b = String(end.getDate()).padStart(2,'0');
+  if(mesIgual) return a + '–' + b + ' ' + MES_ABR[weekStart.getMonth()];
+  return a + ' ' + MES_ABR[weekStart.getMonth()] + ' – ' + b + ' ' + MES_ABR[end.getMonth()];
+}
+function isCurrentWeek(){ return NOW.getFullYear()===YEAR && sameDay(mondayOf(NOW), weekStart); }
+function shiftWeek(n){ weekStart = addDays(weekStart, n*7); renderResumo(); renderHeaderControls(); }
+function goToday(){ weekStart = (NOW.getFullYear()===YEAR) ? mondayOf(NOW) : weekStart; renderResumo(); renderHeaderControls(); }
 
 /* ---- agregações ---- */
 function monthRecords(){ return byMonth[currentMonth] || []; }
@@ -540,43 +603,89 @@ function renderMonthSwitch(){
   }
 }
 
-function nextEventFromToday(){
-  const recs = monthRecords().slice().sort((a,b)=> a.dia-b.dia);
-  const isCurMonth = (NOW.getMonth()+1)===currentMonth && NOW.getFullYear()===YEAR;
-  const fromDay = isCurMonth ? NOW.getDate() : 1;
-  const cand = recs.find(r=> r.dia >= fromDay && r.status==='evento');
-  return cand || recs.find(r=>r.status==='evento') || null;
+/* ---- controles do cabeçalho (semana no Resumo, mês nas demais abas) ---- */
+function renderHeaderControls(){
+  const weekNav = document.getElementById('weekNav');
+  const monthSw = document.getElementById('monthSwitch');
+  if(currentView === 'resumo'){
+    weekNav.style.display = 'flex';
+    monthSw.style.display = 'none';
+    renderWeekNav();
+    document.getElementById('periodSub').textContent = 'Semana de ' + weekLabel().replace(' – ',' a ').replace('–',' a ');
+  } else {
+    weekNav.style.display = 'none';
+    monthSw.style.display = 'flex';
+    renderMonthSwitch();
+    document.getElementById('periodSub').textContent = MESES[currentMonth-1] + ' de ' + YEAR;
+  }
+}
+
+function renderWeekNav(){
+  const el = document.getElementById('weekNav');
+  const cur = isCurrentWeek();
+  el.innerHTML =
+      '<button type="button" id="wPrev" aria-label="Semana anterior">◀</button>'
+    + '<span class="wlabel">' + weekLabel() + '</span>'
+    + '<button type="button" id="wNext" aria-label="Próxima semana">▶</button>'
+    + (cur ? '' : '<button type="button" id="wToday" class="today-btn">Hoje</button>');
+  document.getElementById('wPrev').onclick = ()=> shiftWeek(-1);
+  document.getElementById('wNext').onclick = ()=> shiftWeek(1);
+  const t = document.getElementById('wToday'); if(t) t.onclick = ()=> goToday();
+}
+
+/* ---- Resumo da semana ---- */
+function weekNextEvent(){
+  const days = weekDays();
+  const useFrom = isCurrentWeek();
+  for(const d of days){
+    if(useFrom && d.date < new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate())) continue;
+    const ev = d.records.find(r=> r.status==='evento');
+    if(ev) return {titulo:ev.titulo, dia:d.dia, mes:d.mes, espaco:ev.espaco};
+  }
+  const any = weekRecords().find(r=>r.status==='evento');
+  return any || null;
 }
 
 function renderInsight(){
   const el = document.getElementById('insightBanner');
-  const evs = aggregatedEvents();
-  const nx = nextEventFromToday();
+  const evsTitulos = new Set(weekRecords().filter(r=>r.status==='evento').map(r=>r.titulo));
+  const nx = weekNextEvent();
   const nextLine = nx
-    ? 'Próximo evento: <strong>' + nx.titulo + '</strong> · ' + String(nx.dia).padStart(2,'0') + '/' + String(currentMonth).padStart(2,'0') + ' · ' + nx.espaco
-    : 'Nenhum evento registrado neste mês.';
-  const manutDays = new Set(monthRecords().filter(r=>r.status==='manutencao').map(r=>r.dia)).size;
+    ? (isCurrentWeek() ? 'A seguir' : 'Primeiro evento') + ': <strong>' + nx.titulo + '</strong> · '
+        + String(nx.dia).padStart(2,'0') + '/' + String(nx.mes).padStart(2,'0') + ' · ' + nx.espaco
+    : 'Nenhum evento registrado nesta semana.';
+  const manutDays = new Set(weekRecords().filter(r=>r.status==='manutencao').map(r=>r.mes+'-'+r.dia)).size;
   const pill = manutDays
     ? '<span class="pill manutencao"><span class="sq"></span>' + manutDays + ' dia(s) de manutenção</span>'
     : '<span class="pill livre"><span class="sq"></span>Sem manutenção prevista</span>';
+  const titulo = 'Semana de ' + weekLabel().replace(' – ',' a ').replace('–',' a ') + ' — ' + evsTitulos.size + ' evento(s)'
+    + (isCurrentWeek() ? ' · semana atual' : '');
   el.innerHTML = '<div class="insight-row"><div>'
-    + '<div class="insight-title">' + MESES[currentMonth-1] + ' de ' + YEAR + ' — ' + evs.length + ' evento(s) programado(s)</div>'
+    + '<div class="insight-title">' + titulo + '</div>'
     + '<div class="insight-next">' + nextLine + '</div></div>' + pill + '</div>';
 }
 
 function renderKPIs(){
-  const recs = monthRecords();
-  const evs = aggregatedEvents().filter(e=>e.status==='evento');
-  const diasComAtividade = new Set(recs.map(r=>r.dia)).size;
-  const manutDias = new Set(recs.filter(r=>r.status==='manutencao').map(r=>r.dia)).size;
+  const days = weekDays();
+  const recs = weekRecords();
+  const evs = new Set(recs.filter(r=>r.status==='evento').map(r=>r.titulo)).size;
+  const diasAtiv = days.filter(d=> d.records.length).length;
   const espacos = new Set(recs.map(r=>r.espaco)).size;
-  const fimSemana = new Set(recs.filter(r=>{ const w=weekdayOf(currentMonth,r.dia); return w===0||w===6; }).map(r=>r.dia)).size;
+  const manutDias = new Set(recs.filter(r=>r.status==='manutencao').map(r=>r.mes+'-'+r.dia)).size;
+  const hojeDia = days.find(d=> isToday(d.mes, d.dia));
+  let quinto;
+  if(hojeDia){
+    const n = new Set(hojeDia.records.map(r=>r.titulo)).size;
+    quinto = {num:n, label:'Atividades hoje', cls: n ? 'accent-alerta' : 'accent-livre'};
+  } else {
+    quinto = {num: 7 - diasAtiv, label:'Dias livres', cls:'accent-livre'};
+  }
   const kpis = [
-    {num: evs.length, label:'Eventos no mês', cls:'accent-evento'},
-    {num: diasComAtividade, label:'Dias com atividade', cls:'accent-neutral'},
+    {num: evs, label:'Eventos na semana', cls:'accent-evento'},
+    {num: diasAtiv + ' / 7', label:'Dias com atividade', cls:'accent-neutral'},
     {num: espacos, label:'Espaços utilizados', cls:'accent-livre'},
     {num: manutDias, label:'Dias de manutenção', cls: manutDias ? 'accent-manut' : 'accent-livre'},
-    {num: fimSemana, label:'Fins de semana ocupados', cls: fimSemana ? 'accent-alerta' : 'accent-livre'},
+    quinto,
   ];
   const row = document.getElementById('kpiRow');
   row.innerHTML = '';
@@ -590,46 +699,52 @@ function renderKPIs(){
 
 function renderAgenda(){
   const list = document.getElementById('agendaList');
-  const nd = daysInMonth(YEAR, currentMonth);
-  const map = occupancyMap();
   list.innerHTML = '';
-  let any = false;
-  for(let dia=1; dia<=nd; dia++){
-    const titulos = new Set();
-    Object.values(map).forEach(byDay=>{ if(byDay[dia]) byDay[dia].titulos.forEach(t=>titulos.add(t)); });
-    if(!titulos.size) continue;
-    any = true;
-    const w = weekdayOf(currentMonth, dia);
+  weekDays().forEach(d=>{
+    const titulos = [...new Set(d.records.map(r=>r.titulo))];
+    const hoje = isToday(d.mes, d.dia);
     const li = document.createElement('li');
-    if(isToday(currentMonth, dia)) li.className = 'is-today';
-    const arr = [...titulos];
-    const first = arr.slice(0,2).join(' · ');
-    const extra = arr.length>2 ? ' <small>+' + (arr.length-2) + ' outro(s)</small>' : '';
-    li.innerHTML = '<span class="day">' + String(dia).padStart(2,'0') + '/' + String(currentMonth).padStart(2,'0') + '<small>' + WD_ABR[w] + '</small></span>'
-      + '<span class="ev">' + first + extra + '</span>'
-      + (isToday(currentMonth,dia) ? '<span class="pill evento"><span class="sq"></span>hoje</span>' : '<span></span>');
+    if(hoje) li.className = 'is-today';
+    const wd = d.date.getDay();
+    const first = titulos.length ? titulos.slice(0,2).join(' · ') : '<span class="empty-note">Livre</span>';
+    const extra = titulos.length>2 ? ' <small>+' + (titulos.length-2) + ' outro(s)</small>' : '';
+    const marca = hoje
+      ? '<span class="pill evento"><span class="sq"></span>hoje</span>'
+      : (titulos.length ? '<span class="pill ' + (d.records.some(r=>r.status==='evento')?'evento':'manutencao') + '"><span class="sq"></span>' + titulos.length + '</span>' : '<span></span>');
+    li.innerHTML = '<span class="day">' + fmtDM(d.date) + '<small>' + WD_ABR[wd] + '</small></span>'
+      + '<span class="ev">' + first + extra + '</span>' + marca;
     list.appendChild(li);
-  }
-  if(!any) list.innerHTML = '<li><span class="empty-note">Nenhum evento registrado neste mês.</span></li>';
+  });
 }
 
 function renderSpaceMap(){
   const el = document.getElementById('spaceMap');
-  const map = occupancyMap();
-  const spaces = spacesInMonth();
+  const recs = weekRecords();
+  const perSpace = {};
+  recs.forEach(r=>{
+    const s = perSpace[r.espaco] = perSpace[r.espaco] || {dias:new Set(), status:'livre'};
+    s.dias.add(r.mes+'-'+r.dia);
+    if(statusRank(r.status) > statusRank(s.status)) s.status = r.status;
+  });
+  const spaces = Object.keys(perSpace).sort((a,b)=> spaceRank(a)-spaceRank(b) || a.localeCompare(b));
   el.innerHTML = '';
-  if(!spaces.length){ el.innerHTML = '<div class="empty-note">Nenhum espaço com atividade neste mês.</div>'; return; }
+  if(!spaces.length){ el.innerHTML = '<div class="empty-note">Nenhum espaço com atividade nesta semana.</div>'; return; }
   spaces.forEach(nome=>{
-    const dias = map[nome] || {};
-    let status='livre'; let count=0;
-    Object.values(dias).forEach(c=>{ count++; if(statusRank(c.status)>statusRank(status)) status=c.status; });
-    const label = status==='manutencao' ? 'Manutenção' : 'Em uso';
-    const pill = '<span class="pill ' + (status==='manutencao'?'manutencao':'evento') + '"><span class="sq"></span>' + label + ' · ' + count + ' dia(s)</span>';
+    const s = perSpace[nome];
+    const label = s.status==='manutencao' ? 'Manutenção' : 'Em uso';
+    const pill = '<span class="pill ' + (s.status==='manutencao'?'manutencao':'evento') + '"><span class="sq"></span>' + label + ' · ' + s.dias.size + ' dia(s)</span>';
     const row = document.createElement('div');
     row.className = 'row';
     row.innerHTML = '<span>' + nome + '</span>' + pill;
     el.appendChild(row);
   });
+}
+
+function renderResumo(){
+  renderInsight();
+  renderKPIs();
+  renderAgenda();
+  renderSpaceMap();
 }
 
 function renderOccGrid(){
@@ -748,12 +863,8 @@ function renderIndicadores(){
 }
 
 function renderAll(){
-  document.getElementById('periodSub').textContent = MESES[currentMonth-1] + ' de ' + YEAR;
-  renderMonthSwitch();
-  renderInsight();
-  renderKPIs();
-  renderAgenda();
-  renderSpaceMap();
+  renderHeaderControls();
+  renderResumo();
   renderOccGrid();
   renderEventos();
   renderIndicadores();
@@ -764,10 +875,12 @@ document.getElementById('tabnav').addEventListener('click', e=>{
   if(!btn) return;
   document.querySelectorAll('#tabnav button').forEach(b=>b.setAttribute('aria-current', b===btn));
   const view = btn.dataset.view;
+  currentView = view;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+view).classList.add('active');
-  const titles = {resumo:'Resumo do Mês', ocupacao:'Mapa de Ocupação', eventos:'Eventos & Contatos', indicadores:'Indicadores'};
+  const titles = {resumo:'Resumo da Semana', ocupacao:'Mapa de Ocupação', eventos:'Eventos & Contatos', indicadores:'Indicadores'};
   document.getElementById('pageTitle').textContent = titles[view];
+  renderHeaderControls();
 });
 
 loadData();
