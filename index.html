@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de Ocupação · DCEven / UFSC</title>
+<style>
+  :root{
+    --ink:#132038; --paper:#eef1f6; --paper-raised:#ffffff; --line:#ccd5e2; --muted:#5a6b83;
+    --brand:#1d5ca6; --brand-strong:#123f73; --brand-soft:#dce8f7;
+    --livre:#2f7d3d; --livre-soft:#dff0e1; --manut:#c97a2e; --manut-soft:#f6e4cf;
+    --evento:#1d5ca6; --evento-soft:#dce8f7; --alerta:#ab3327; --alerta-soft:#f7dcd8;
+    --shadow: 0 1px 2px rgba(19,32,56,.07), 0 6px 18px -10px rgba(19,32,56,.2);
+    --radius:7px;
+    --font-ui: -apple-system, "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "IBM Plex Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#e9edf5; --paper:#0f1620; --paper-raised:#17212e; --line:#2b3a4d; --muted:#93a3ba;
+      --brand:#649bda; --brand-strong:#9dc1ec; --brand-soft:#1c2c40;
+      --livre:#65bf78; --livre-soft:#1c3324; --manut:#e0a35e; --manut-soft:#3a2c1c;
+      --evento:#649bda; --evento-soft:#1c2c40; --alerta:#e2897c; --alerta-soft:#3c231f;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 6px 18px -10px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#e9edf5; --paper:#0f1620; --paper-raised:#17212e; --line:#2b3a4d; --muted:#93a3ba;
+    --brand:#649bda; --brand-strong:#9dc1ec; --brand-soft:#1c2c40;
+    --livre:#65bf78; --livre-soft:#1c3324; --manut:#e0a35e; --manut-soft:#3a2c1c;
+    --evento:#649bda; --evento-soft:#1c2c40; --alerta:#e2897c; --alerta-soft:#3c231f;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 6px 18px -10px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"]{
+    --ink:#132038; --paper:#eef1f6; --paper-raised:#ffffff; --line:#ccd5e2; --muted:#5a6b83;
+    --brand:#1d5ca6; --brand-strong:#123f73; --brand-soft:#dce8f7;
+    --livre:#2f7d3d; --livre-soft:#dff0e1; --manut:#c97a2e; --manut-soft:#f6e4cf;
+    --evento:#1d5ca6; --evento-soft:#dce8f7; --alerta:#ab3327; --alerta-soft:#f7dcd8;
+    --shadow: 0 1px 2px rgba(19,32,56,.07), 0 6px 18px -10px rgba(19,32,56,.2);
+  }
+
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:var(--font-ui); font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased; }
+  h1,h2,h3{ text-wrap:balance; margin:0; font-weight:700; letter-spacing:-.01em; }
+  .tabular{ font-variant-numeric:tabular-nums; font-family:var(--font-mono); }
+
+  .topbar{ height:5px; background:linear-gradient(90deg, var(--brand-strong), var(--brand)); }
+  .shell{ display:block; min-height:calc(100vh - 5px); }
+  @media (min-width:861px){ .shell{ display:grid; grid-template-columns:220px 1fr; } }
+
+  .rail{ background:var(--paper-raised); border-bottom:1px solid var(--line); padding:12px 14px; display:flex; flex-direction:column; gap:10px; position:static; }
+  @media (min-width:861px){ .rail{ border-bottom:none; border-right:1px solid var(--line); padding:20px 16px; gap:22px; position:sticky; top:0; height:100vh; } }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand .mark{ width:32px; height:32px; border-radius:8px; background:var(--brand); display:grid; place-items:center; color:#fff; font-weight:800; font-size:13px; flex:none; }
+  .brand .word{ font-size:13px; line-height:1.2; }
+  .brand .word b{ display:block; font-size:14px; }
+  .brand .word span{ color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+
+  nav{ display:flex; flex-direction:row; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px; scrollbar-width:none; }
+  nav::-webkit-scrollbar{ display:none; }
+  nav button{ all:unset; cursor:pointer; padding:10px 14px; border-radius:999px; font-size:13px; color:var(--muted); display:flex; align-items:center; gap:8px; font-weight:600; border:1px solid var(--line); white-space:nowrap; min-height:40px; flex:none; }
+  @media (min-width:861px){ nav{ flex-direction:column; gap:2px; overflow-x:visible; } nav button{ border-radius:8px; border:none; padding:9px 10px; white-space:normal; min-height:0; } }
+  nav button:hover{ background:var(--brand-soft); color:var(--ink); }
+  nav button[aria-current="true"]{ background:var(--brand); border-color:var(--brand); color:#fff; }
+  nav button:focus-visible{ outline:2px solid var(--brand); outline-offset:2px; }
+  nav button .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; opacity:.5; flex:none; }
+
+  .rail-foot{ display:none; font-size:11px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; }
+  @media (min-width:861px){ .rail-foot{ display:block; margin-top:auto; } }
+
+  .main{ padding:14px 14px 40px; max-width:1240px; }
+  @media (min-width:640px){ .main{ padding:22px 28px 60px; } }
+  header.top{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  header.top h1{ font-size:19px; }
+  @media (min-width:640px){ header.top h1{ font-size:22px; } }
+  header.top .sub{ color:var(--muted); font-size:12.5px; margin-top:3px; }
+
+  .sync-status{ display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--muted); margin-top:6px; flex-wrap:wrap; }
+  .sync-status .sync-dot{ width:7px; height:7px; border-radius:50%; background:var(--livre); flex:none; }
+  .sync-status.is-error .sync-dot{ background:var(--alerta); }
+  .sync-status.is-loading .sync-dot{ background:var(--manut); animation:pulse 1.1s ease-in-out infinite; }
+  .sync-status button{ all:unset; cursor:pointer; color:var(--brand); font-weight:700; font-size:11.5px; padding:2px 6px; border-radius:6px; }
+  .sync-status button:hover{ background:var(--brand-soft); }
+  .sync-status button:focus-visible{ outline:2px solid var(--brand); outline-offset:1px; }
+
+  .month-switch{ display:flex; gap:6px; overflow-x:auto; max-width:100%; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:4px; }
+  .month-switch::-webkit-scrollbar{ display:none; }
+  .month-switch:empty{ display:none; }
+  .month-switch button{ all:unset; cursor:pointer; padding:8px 14px; border-radius:999px; font-size:12.5px; font-weight:700; color:var(--muted); white-space:nowrap; flex:none; min-height:38px; display:flex; align-items:center; border:1px solid var(--line); background:var(--paper-raised); transition:background .16s, color .16s, transform .12s; }
+  .month-switch button[aria-current="true"]{ background:var(--brand); border-color:var(--brand); color:#fff; }
+  .month-switch button:active{ transform:scale(.96); }
+  .month-switch button.has-data::after{ content:''; width:5px; height:5px; border-radius:50%; background:currentColor; opacity:.45; margin-left:7px; }
+  .month-switch button[aria-current="true"].has-data::after{ opacity:.9; }
+
+  .grid{ display:grid; gap:12px; }
+  @media (min-width:640px){ .grid{ gap:14px; } }
+  .kpi-row{ grid-template-columns:repeat(2,1fr); }
+  @media (min-width:700px){ .kpi-row{ grid-template-columns:repeat(3,1fr); } }
+  @media (min-width:1080px){ .kpi-row{ grid-template-columns:repeat(5,1fr); } }
+
+  .card{ background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); transition:box-shadow .25s, transform .25s; }
+  .card h3{ font-size:12.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:10px; }
+
+  .kpi{ border:none; color:#fff; }
+  .kpi .num{ font-family:var(--font-mono); font-size:30px; font-weight:800; line-height:1; color:#fff; }
+  .kpi .label{ margin-top:7px; font-size:12.5px; color:rgba(255,255,255,.9); font-weight:600; }
+  .kpi.accent-livre{ background:var(--livre); }
+  .kpi.accent-manut{ background:#a5601b; }
+  .kpi.accent-evento{ background:var(--evento); }
+  .kpi.accent-alerta{ background:var(--alerta); }
+  .kpi.accent-neutral{ background:var(--brand-strong); }
+  .kpi:hover{ transform:translateY(-2px); box-shadow:0 6px 18px -6px rgba(19,32,56,.35); }
+
+  .two-col{ grid-template-columns:1fr; align-items:start; }
+  @media (min-width:960px){ .two-col{ grid-template-columns:1.25fr 1fr; } }
+
+  .pill{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .pill.livre{ background:var(--livre-soft); color:var(--livre); }
+  .pill.manutencao{ background:var(--manut-soft); color:var(--manut); }
+  .pill.evento{ background:var(--evento-soft); color:var(--evento); }
+  .pill .sq{ width:7px; height:7px; border-radius:2px; background:currentColor; }
+
+  ul.agenda{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; max-height:520px; overflow-y:auto; }
+  ul.agenda li{ display:grid; grid-template-columns:60px 1fr auto; gap:10px; align-items:center; font-size:13px; padding:9px 4px; border-bottom:1px dashed var(--line); }
+  ul.agenda li:last-child{ border-bottom:none; }
+  ul.agenda li.is-today{ background:var(--brand-soft); border-radius:6px; }
+  ul.agenda .day{ font-weight:700; font-family:var(--font-mono); font-size:12.5px; }
+  ul.agenda .day small{ display:block; font-weight:600; color:var(--muted); font-size:10.5px; font-family:var(--font-ui); text-transform:uppercase; letter-spacing:.03em; }
+  ul.agenda .ev{ font-weight:600; line-height:1.3; }
+  ul.agenda .ev small{ display:block; color:var(--muted); font-weight:500; font-size:11.5px; }
+
+  .space-map{ display:grid; grid-template-columns:1fr; gap:8px; }
+  @media (min-width:520px){ .space-map{ grid-template-columns:repeat(2,1fr); } }
+  .space-map .row{ display:flex; justify-content:space-between; align-items:center; gap:8px; padding:9px 10px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-weight:600; transition:border-color .2s; }
+  .space-map .row:hover{ border-color:var(--brand); }
+
+  .legend{ display:flex; gap:14px; flex-wrap:wrap; margin:6px 0 10px; font-size:12px; color:var(--muted); }
+  .legend .item{ display:flex; align-items:center; gap:6px; }
+  .legend .sw{ width:11px; height:11px; border-radius:3px; }
+
+  .occ-hint{ display:block; font-size:11.5px; color:var(--muted); margin:0 0 8px; }
+  @media (min-width:861px){ .occ-hint{ display:none; } }
+  .occ-scroll{ overflow-x:auto; padding-bottom:6px; }
+  .occ-grid{ display:grid; gap:3px; align-items:stretch; }
+  .occ-grid .corner{ position:sticky; left:0; z-index:2; background:var(--paper-raised); }
+  .occ-grid .head{ font-size:10px; font-weight:700; color:var(--muted); text-align:center; padding:3px 0 5px; line-height:1.15; border-bottom:1px solid var(--line); }
+  .occ-grid .head .dn{ display:block; font-family:var(--font-mono); font-size:12px; color:var(--ink); font-weight:800; }
+  .occ-grid .head.weekend{ color:var(--alerta); }
+  .occ-grid .head.weekend .dn{ color:var(--alerta); }
+  .occ-grid .head.today{ color:var(--brand-strong); }
+  .occ-grid .head.today .dn{ color:#fff; background:var(--brand); border-radius:5px; }
+  .occ-grid .rowlabel{ position:sticky; left:0; z-index:1; background:var(--paper-raised); font-size:12px; font-weight:700; display:flex; align-items:center; padding-right:10px; white-space:nowrap; }
+  .occ-cell{ min-height:30px; border-radius:5px; background:var(--paper); border:1px solid var(--line); cursor:default; }
+  .occ-cell.evento{ background:var(--evento); border-color:var(--evento); }
+  .occ-cell.manutencao{ background:var(--manut); border-color:var(--manut); }
+  .occ-cell.weekend.empty{ background:transparent; border-color:transparent; }
+  .occ-cell.today{ outline:2px solid var(--brand-strong); outline-offset:-2px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:8px; }
+  th,td{ padding:9px 10px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top; }
+  thead th{ background:var(--paper); color:var(--muted); text-transform:uppercase; font-size:10.5px; letter-spacing:.05em; white-space:nowrap; }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.cell-name{ font-weight:700; }
+  td.dim{ color:var(--muted); }
+  td.hour{ font-family:var(--font-mono); color:var(--muted); white-space:nowrap; }
+
+  .bar-row{ display:grid; grid-template-columns:130px 1fr 48px; gap:10px; align-items:center; margin-bottom:9px; font-size:12.5px; }
+  .bar-row:last-child{ margin-bottom:0; }
+  .bar-track{ height:10px; border-radius:6px; background:var(--paper); border:1px solid var(--line); overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:6px 0 0 6px; background:var(--brand); }
+  .bar-row .val{ font-family:var(--font-mono); text-align:right; color:var(--muted); }
+
+  .empty-note{ color:var(--muted); font-size:12px; font-style:italic; }
+  footer.note{ margin-top:26px; font-size:11.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; }
+  footer.note code{ font-family:var(--font-mono); font-size:11px; background:var(--paper); border:1px solid var(--line); border-radius:5px; padding:1px 5px; }
+
+  .view{ display:none; flex-direction:column; gap:16px; }
+  .view.active{ display:flex; animation:viewIn .38s cubic-bezier(.16,1,.3,1); }
+  @keyframes viewIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes pulse{ 0%,100%{ opacity:.55; } 50%{ opacity:1; } }
+  @media (prefers-reduced-motion:reduce){ .view.active{ animation:none; } .sync-status.is-loading .sync-dot{ animation:none; } }
+
+  .insight{ border-left:3px solid var(--brand); }
+  .insight-row{ display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
+  .insight-title{ font-weight:700; font-size:14px; }
+  .insight-next{ color:var(--muted); font-size:12.5px; margin-top:3px; }
+
+  .state-screen{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; padding:26px 22px; max-width:680px; }
+  .state-screen h2{ font-size:16px; }
+  .state-screen p{ color:var(--muted); font-size:13px; line-height:1.6; margin:0; }
+  .state-screen code{ background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:2px 6px; font-family:var(--font-mono); font-size:12px; word-break:break-all; }
+  .state-screen ol{ margin:0; padding-left:18px; color:var(--muted); font-size:13px; line-height:1.8; }
+  .state-screen .btn{ all:unset; cursor:pointer; background:var(--brand); color:#fff; padding:9px 16px; border-radius:8px; font-weight:700; font-size:13px; }
+  .skeleton{ background:linear-gradient(100deg, var(--paper) 30%, var(--paper-raised) 50%, var(--paper) 70%); background-size:200% 100%; animation:shimmer 1.4s ease-in-out infinite; border-radius:var(--radius); }
+  @keyframes shimmer{ from{ background-position:200% 0; } to{ background-position:-200% 0; } }
+  @media (prefers-reduced-motion:reduce){ .skeleton{ animation:none; } }
+</style>
+</head>
+<body>
+
+<div class="topbar"></div>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <div class="mark">AV</div>
+      <div class="word"><b>Ocupação de Espaços</b><span>DCEven · UFSC</span></div>
+    </div>
+    <nav id="tabnav">
+      <button data-view="resumo" aria-current="true"><span class="dot"></span>Resumo do Mês</button>
+      <button data-view="ocupacao"><span class="dot"></span>Mapa de Ocupação</button>
+      <button data-view="eventos"><span class="dot"></span>Eventos &amp; Contatos</button>
+      <button data-view="indicadores"><span class="dot"></span>Indicadores</button>
+    </nav>
+    <div class="rail-foot">Agenda dos espaços do Centro de Cultura e Eventos e da Reitoria. Dados ao vivo da planilha do Google Drive.</div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <div>
+        <h1 id="pageTitle">Resumo do Mês</h1>
+        <div class="sub" id="periodSub"></div>
+        <div class="sync-status" id="syncStatus"></div>
+      </div>
+      <div class="month-switch" id="monthSwitch"></div>
+    </header>
+
+    <div id="stateScreen"></div>
+
+    <section class="view active" id="view-resumo">
+      <div class="card insight" id="insightBanner"></div>
+      <div class="grid kpi-row" id="kpiRow"></div>
+      <div class="grid two-col">
+        <div class="card">
+          <h3>Agenda do mês</h3>
+          <ul class="agenda" id="agendaList"></ul>
+        </div>
+        <div class="card">
+          <h3>Situação dos espaços no mês</h3>
+          <div class="space-map" id="spaceMap"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-ocupacao">
+      <div class="card">
+        <h3>Mapa de ocupação — mês selecionado</h3>
+        <div class="legend">
+          <div class="item"><span class="sw" style="background:var(--paper);border:1px solid var(--line)"></span>Livre</div>
+          <div class="item"><span class="sw" style="background:var(--evento)"></span>Evento / Uso</div>
+          <div class="item"><span class="sw" style="background:var(--manut)"></span>Manutenção</div>
+          <div class="item"><span class="sw" style="background:var(--brand-strong)"></span>Hoje</div>
+        </div>
+        <p class="occ-hint">↔ Arraste para o lado para ver o mês inteiro. Toque numa célula para ver o evento.</p>
+        <div class="occ-scroll">
+          <div class="occ-grid" id="occGrid"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-eventos">
+      <div class="card">
+        <h3>Eventos do mês — espaços, datas e contatos</h3>
+        <p class="occ-hint">↔ Arraste para o lado para ver todas as colunas.</p>
+        <div class="table-wrap">
+          <table id="eventosTable"></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-indicadores">
+      <div class="grid two-col">
+        <div class="card">
+          <h3>Ocupação por espaço (% do mês)</h3>
+          <div id="occBySpace"></div>
+        </div>
+        <div class="card">
+          <h3>Resumo do mês</h3>
+          <div id="monthSummary"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Ocupação ao longo do ano (dias com atividade por mês)</h3>
+        <div id="yearChart"></div>
+      </div>
+    </section>
+
+    <footer class="note">Dados ao vivo da planilha de agenda do Google Drive (leitura direta das 24 abas, sem script). O painel sincroniza a cada abertura e a cada poucos minutos. Cobre os espaços do Centro de Cultura e Eventos (Garapuvu, salas Goiabeira/Laranjeira/Pitangueira/Aroeira, Hall, Copa) e da Reitoria.</footer>
+  </main>
+</div>
+
+<script>
+const CONFIG = {
+  // ID da planilha do Google (o trecho entre /d/ e /edit no link) OU o link inteiro.
+  // Já vem preenchido com a planilha de agenda 2026. Só funciona se a planilha estiver
+  // compartilhada como "Qualquer pessoa com o link" (Leitor).
+  SHEET: '1csG1O-6OHD0rIttvVfhxhnmcQqpzl05FhPSSDp5lM4I',
+  REFRESH_MS: 5 * 60 * 1000,
+};
+
+// Abas da planilha (nome exato, mês, tipo). Atualize se as abas forem renomeadas.
+const TABS = [
+  ['JAN CCEVEN',1,'cceven'],['JAN REIT',1,'reit'],
+  ['FEV CCEVEN',2,'cceven'],['FEV REIT',2,'reit'],
+  ['MAR  CCEVEN',3,'cceven'],['MAR REIT',3,'reit'],
+  ['ABR CCEVEN',4,'cceven'],['ABR REIT',4,'reit'],
+  ['MAI CCEVEN',5,'cceven'],['MAI REIT',5,'reit'],
+  ['JUN CCEVEN',6,'cceven'],['JUN REIT',6,'reit'],
+  ['JUL CCEVEN',7,'cceven'],['JUL REIT',7,'reit'],
+  ['AGO CCEVEN',8,'cceven'],['AGO REIT',8,'reit'],
+  ['SET  CCEVEN',9,'cceven'],['SET  REIT',9,'reit'],
+  ['OUT   CCEVEN',10,'cceven'],['OUT  REIT',10,'reit'],
+  ['NOV  CCEVEN',11,'cceven'],[' NOV REIT',11,'reit'],
+  ['DEZ  CCEVEN',12,'cceven'],['DEZ  REIT',12,'reit'],
+];
+const CCEVEN_SHIFTS = [['8H ÀS 12H','manha'],['14H ÀS 18H','tarde'],['18H ÀS 22H','noite']];
+const CCEVEN_SINGLE = [['HALL','Hall (CCEven)'],['COPA','Copa'],['GOIABEIRA','Goiabeira'],['LARANJEIRA','Laranjeira'],['PITANGUEIRA','Pitangueira'],['AROEIRA','Aroeira']];
+const REIT_SHIFTS = [['MANHÃ','manha'],['TARDE','tarde'],['NOITE','noite']];
+const REIT_SINGLE = [['HALL','Hall (Reitoria)'],['ANTESSALA','Antessala']];
+
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MES_ABR = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const WD_ABR = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const TURNO_LABEL = {manha:'Manhã', tarde:'Tarde', noite:'Noite', dia:'Dia inteiro'};
+const SPACE_ORDER = ['Auditório Garapuvu','Goiabeira','Laranjeira','Pitangueira','Aroeira','Auditório da Reitoria','Antessala','Hall (CCEven)','Hall (Reitoria)','Copa'];
+const SHIFT_SPACES = new Set(['Auditório Garapuvu','Auditório da Reitoria']);
+
+const NOW = new Date();
+let YEAR = 2026;
+let FEED = null;
+let byMonth = {};           // mes -> [records]
+let months = [];            // sorted list of mes numbers present
+let currentMonth = null;
+let lastSyncAt = null;
+let refreshTimer = null;
+
+function daysInMonth(year, mes){ return new Date(year, mes, 0).getDate(); }
+function weekdayOf(mes, dia){ return new Date(YEAR, mes-1, dia).getDay(); }
+function isToday(mes, dia){ return NOW.getFullYear()===YEAR && (NOW.getMonth()+1)===mes && NOW.getDate()===dia; }
+function spaceRank(nome){ const i = SPACE_ORDER.indexOf(nome); return i<0 ? 99 : i; }
+
+function statusRank(s){ return s==='evento' ? 2 : s==='manutencao' ? 1 : 0; }
+
+/* ---- carga de dados ---- */
+function setSyncStatus(state, extra){
+  const el = document.getElementById('syncStatus');
+  if(!el) return;
+  el.className = 'sync-status' + (state==='error' ? ' is-error' : state==='loading' ? ' is-loading' : '');
+  const time = lastSyncAt ? lastSyncAt.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) : null;
+  let text;
+  if(state==='loading') text = 'Sincronizando com a planilha…';
+  else if(state==='error') text = extra || 'Falha ao sincronizar';
+  else text = 'Atualizado às ' + time + ' · leitura direta da planilha';
+  el.innerHTML = '<span class="sync-dot"></span><span>' + text + '</span><button id="refreshBtn" type="button">Atualizar agora</button>';
+  const b = document.getElementById('refreshBtn');
+  if(b) b.onclick = ()=> loadData(true);
+}
+function fmtGenerated(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  return d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}) + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function renderStateScreen(kind, message){
+  const el = document.getElementById('stateScreen');
+  const views = document.querySelectorAll('.view');
+  if(kind === 'ready'){ el.innerHTML=''; views.forEach(v=> v.style.display=''); return; }
+  views.forEach(v=> v.style.display='none');
+  if(kind === 'loading'){
+    el.innerHTML = '<div class="card state-screen"><div class="skeleton" style="width:240px;height:16px"></div><div class="skeleton" style="width:100%;height:70px"></div><div class="skeleton" style="width:100%;height:70px"></div><p>Carregando a agenda da planilha…</p></div>';
+    return;
+  }
+  el.innerHTML = '<div class="card state-screen"><h2>Não consegui carregar a agenda</h2>'
+    + '<p>' + message + '</p>'
+    + '<p>Este painel lê a planilha do Google Drive diretamente — sem script. Verifique:</p>'
+    + '<ol><li>A planilha precisa estar compartilhada como <strong>Qualquer pessoa com o link → Leitor</strong> (Compartilhar → Acesso geral)</li>'
+    + '<li>O ID/link da planilha deve estar em <code>CONFIG.SHEET</code> no início do script deste arquivo</li>'
+    + '<li>Se as abas foram renomeadas, ajuste a lista <code>TABS</code> com os nomes exatos</li></ol>'
+    + '<button class="btn" id="retryBtn" type="button">Tentar novamente</button></div>';
+  const b = document.getElementById('retryBtn');
+  if(b) b.onclick = ()=> loadData(true);
+}
+
+function normHdr(v){ return v==null ? '' : String(v).replace(/\s+/g,' ').trim().toUpperCase(); }
+
+function parseCSV(text){
+  const rows = []; let row = [], field = '', q = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(q){
+      if(c === '"'){ if(text[i+1] === '"'){ field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if(c === '"'){ q = true; }
+    else if(c === ','){ row.push(field); field = ''; }
+    else if(c === '\n' || c === '\r'){ if(c === '\r' && text[i+1] === '\n') i++; row.push(field); rows.push(row); row = []; field = ''; }
+    else field += c;
+  }
+  if(field !== '' || row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+function parseEventCell(v){
+  if(v == null) return null;
+  const s = String(v).trim();
+  if(!s) return null;
+  let titulo = s, contato = '';
+  const i = s.indexOf('/');
+  if(i >= 0){ titulo = s.slice(0,i).trim(); contato = s.slice(i+1).replace(/\s+/g,' ').trim(); }
+  if(!titulo) return null;
+  const status = normHdr(titulo).indexOf('MANUTEN') >= 0 ? 'manutencao' : 'evento';
+  return {titulo, contato, status};
+}
+
+function parseTab(rows, mes, tipo){
+  const recs = [];
+  const shiftDefs = tipo === 'reit' ? REIT_SHIFTS : CCEVEN_SHIFTS;
+  const singleDefs = tipo === 'reit' ? REIT_SINGLE : CCEVEN_SINGLE;
+  const espacoTurno = tipo === 'reit' ? 'Auditório da Reitoria' : 'Auditório Garapuvu';
+  const isDay = v => { const t = (v==null?'':String(v)).trim(); return /^\d{1,2}$/.test(t) && +t>=1 && +t<=31; };
+  let firstData = rows.findIndex(r => isDay(r[0]));
+  if(firstData < 0) return recs;
+  const shiftCols = {}, singleCols = {};
+  for(let r=0; r<firstData; r++){
+    (rows[r]||[]).forEach((v,c)=>{
+      const n = normHdr(v);
+      shiftDefs.forEach(([lbl,turno])=>{ if(n === normHdr(lbl) && shiftCols[turno]==null) shiftCols[turno]=c; });
+      singleDefs.forEach(([lbl,nome])=>{ if(n === normHdr(lbl) && singleCols[nome]==null) singleCols[nome]=c; });
+    });
+  }
+  for(let r=firstData; r<rows.length; r++){
+    if(!isDay(rows[r][0])) continue;
+    const dia = parseInt(String(rows[r][0]).trim(), 10);
+    for(const turno in shiftCols){ const ev = parseEventCell(rows[r][shiftCols[turno]]); if(ev) recs.push(Object.assign({mes,dia,espaco:espacoTurno,turno}, ev)); }
+    for(const nome in singleCols){ const ev = parseEventCell(rows[r][singleCols[nome]]); if(ev) recs.push(Object.assign({mes,dia,espaco:nome,turno:'dia'}, ev)); }
+  }
+  return recs;
+}
+
+function resolveSheetId(s){
+  s = (s||'').trim();
+  const m = s.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  return m ? m[1] : s;
+}
+
+async function loadData(manual){
+  setSyncStatus('loading');
+  if(!FEED) renderStateScreen('loading');
+  const id = resolveSheetId(CONFIG.SHEET);
+  if(!id){
+    renderStateScreen('error', 'A planilha (CONFIG.SHEET) ainda não foi configurada neste arquivo.');
+    setSyncStatus('error', 'planilha não configurada');
+    return;
+  }
+  try{
+    const results = await Promise.all(TABS.map(async ([nome,mes,tipo])=>{
+      const url = 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=out:csv&headers=0&sheet=' + encodeURIComponent(nome);
+      try{
+        const res = await fetch(url, {cache:'no-store'});
+        if(!res.ok) return {mes, records:[], ok:false};
+        const rows = parseCSV(await res.text());
+        return {mes, records: parseTab(rows, mes, tipo), ok:true};
+      } catch(e){ return {mes, records:[], ok:false}; }
+    }));
+    const records = [];
+    let okCount = 0;
+    results.forEach(r=>{ records.push.apply(records, r.records); if(r.ok) okCount++; });
+    if(!okCount) throw new Error('Não recebi dados de nenhuma aba. Verifique se a planilha está compartilhada como "Qualquer pessoa com o link" (Leitor).');
+    FEED = {generatedAt:new Date().toISOString(), year:YEAR, records};
+    indexData();
+    lastSyncAt = new Date();
+    setSyncStatus('ready');
+    renderStateScreen('ready');
+    renderAll();
+  } catch(err){
+    setSyncStatus('error', 'Falha ao sincronizar: ' + err.message);
+    if(!FEED) renderStateScreen('error', 'Detalhe técnico: ' + err.message);
+  }
+}
+
+function indexData(){
+  byMonth = {};
+  FEED.records.forEach(r=>{
+    (byMonth[r.mes] = byMonth[r.mes] || []).push(r);
+  });
+  months = Object.keys(byMonth).map(Number).sort((a,b)=>a-b);
+  if(!currentMonth || !byMonth[currentMonth]){
+    const thisMonth = NOW.getMonth()+1;
+    currentMonth = months.includes(thisMonth) ? thisMonth : (months[months.length-1] || thisMonth);
+  }
+}
+
+/* ---- agregações ---- */
+function monthRecords(){ return byMonth[currentMonth] || []; }
+
+// mapa: espaco -> dia -> {status, titulos:Set, turnos:{}}
+function occupancyMap(){
+  const map = {};
+  monthRecords().forEach(r=>{
+    (map[r.espaco] = map[r.espaco] || {});
+    const cell = map[r.espaco][r.dia] = map[r.espaco][r.dia] || {status:'livre', titulos:new Set(), detalhes:[]};
+    if(statusRank(r.status) > statusRank(cell.status)) cell.status = r.status;
+    cell.titulos.add(r.titulo);
+    cell.detalhes.push(r);
+  });
+  return map;
+}
+
+function spacesInMonth(){
+  const set = new Set(monthRecords().map(r=>r.espaco));
+  return [...set].sort((a,b)=> spaceRank(a)-spaceRank(b) || a.localeCompare(b));
+}
+
+// eventos agregados: titulo -> {espacos:Set, dias:Set, contato, status}
+function aggregatedEvents(){
+  const evs = {};
+  monthRecords().forEach(r=>{
+    const key = r.titulo;
+    const e = evs[key] = evs[key] || {titulo:r.titulo, espacos:new Set(), dias:new Set(), contato:'', status:r.status};
+    e.espacos.add(r.espaco);
+    e.dias.add(r.dia);
+    if(!e.contato && r.contato) e.contato = r.contato;
+    if(statusRank(r.status) > statusRank(e.status)) e.status = r.status;
+  });
+  return Object.values(evs).sort((a,b)=> Math.min(...a.dias) - Math.min(...b.dias));
+}
+
+/* ---- render ---- */
+function renderMonthSwitch(){
+  const el = document.getElementById('monthSwitch');
+  el.innerHTML = '';
+  for(let m=1; m<=12; m++){
+    const b = document.createElement('button');
+    b.textContent = MES_ABR[m-1] + ' ' + String(YEAR).slice(2);
+    if(byMonth[m] && byMonth[m].length) b.classList.add('has-data');
+    b.setAttribute('aria-current', m===currentMonth);
+    b.disabled = !(byMonth[m] && byMonth[m].length);
+    if(b.disabled){ b.style.opacity = .4; b.style.cursor = 'default'; }
+    else b.onclick = ()=>{ if(currentMonth===m) return; currentMonth = m; renderAll(); };
+    el.appendChild(b);
+  }
+}
+
+function nextEventFromToday(){
+  const recs = monthRecords().slice().sort((a,b)=> a.dia-b.dia);
+  const isCurMonth = (NOW.getMonth()+1)===currentMonth && NOW.getFullYear()===YEAR;
+  const fromDay = isCurMonth ? NOW.getDate() : 1;
+  const cand = recs.find(r=> r.dia >= fromDay && r.status==='evento');
+  return cand || recs.find(r=>r.status==='evento') || null;
+}
+
+function renderInsight(){
+  const el = document.getElementById('insightBanner');
+  const evs = aggregatedEvents();
+  const nx = nextEventFromToday();
+  const nextLine = nx
+    ? 'Próximo evento: <strong>' + nx.titulo + '</strong> · ' + String(nx.dia).padStart(2,'0') + '/' + String(currentMonth).padStart(2,'0') + ' · ' + nx.espaco
+    : 'Nenhum evento registrado neste mês.';
+  const manutDays = new Set(monthRecords().filter(r=>r.status==='manutencao').map(r=>r.dia)).size;
+  const pill = manutDays
+    ? '<span class="pill manutencao"><span class="sq"></span>' + manutDays + ' dia(s) de manutenção</span>'
+    : '<span class="pill livre"><span class="sq"></span>Sem manutenção prevista</span>';
+  el.innerHTML = '<div class="insight-row"><div>'
+    + '<div class="insight-title">' + MESES[currentMonth-1] + ' de ' + YEAR + ' — ' + evs.length + ' evento(s) programado(s)</div>'
+    + '<div class="insight-next">' + nextLine + '</div></div>' + pill + '</div>';
+}
+
+function renderKPIs(){
+  const recs = monthRecords();
+  const evs = aggregatedEvents().filter(e=>e.status==='evento');
+  const diasComAtividade = new Set(recs.map(r=>r.dia)).size;
+  const manutDias = new Set(recs.filter(r=>r.status==='manutencao').map(r=>r.dia)).size;
+  const espacos = new Set(recs.map(r=>r.espaco)).size;
+  const fimSemana = new Set(recs.filter(r=>{ const w=weekdayOf(currentMonth,r.dia); return w===0||w===6; }).map(r=>r.dia)).size;
+  const kpis = [
+    {num: evs.length, label:'Eventos no mês', cls:'accent-evento'},
+    {num: diasComAtividade, label:'Dias com atividade', cls:'accent-neutral'},
+    {num: espacos, label:'Espaços utilizados', cls:'accent-livre'},
+    {num: manutDias, label:'Dias de manutenção', cls: manutDias ? 'accent-manut' : 'accent-livre'},
+    {num: fimSemana, label:'Fins de semana ocupados', cls: fimSemana ? 'accent-alerta' : 'accent-livre'},
+  ];
+  const row = document.getElementById('kpiRow');
+  row.innerHTML = '';
+  kpis.forEach(k=>{
+    const d = document.createElement('div');
+    d.className = 'card kpi ' + k.cls;
+    d.innerHTML = '<div class="num tabular">' + k.num + '</div><div class="label">' + k.label + '</div>';
+    row.appendChild(d);
+  });
+}
+
+function renderAgenda(){
+  const list = document.getElementById('agendaList');
+  const nd = daysInMonth(YEAR, currentMonth);
+  const map = occupancyMap();
+  list.innerHTML = '';
+  let any = false;
+  for(let dia=1; dia<=nd; dia++){
+    const titulos = new Set();
+    Object.values(map).forEach(byDay=>{ if(byDay[dia]) byDay[dia].titulos.forEach(t=>titulos.add(t)); });
+    if(!titulos.size) continue;
+    any = true;
+    const w = weekdayOf(currentMonth, dia);
+    const li = document.createElement('li');
+    if(isToday(currentMonth, dia)) li.className = 'is-today';
+    const arr = [...titulos];
+    const first = arr.slice(0,2).join(' · ');
+    const extra = arr.length>2 ? ' <small>+' + (arr.length-2) + ' outro(s)</small>' : '';
+    li.innerHTML = '<span class="day">' + String(dia).padStart(2,'0') + '/' + String(currentMonth).padStart(2,'0') + '<small>' + WD_ABR[w] + '</small></span>'
+      + '<span class="ev">' + first + extra + '</span>'
+      + (isToday(currentMonth,dia) ? '<span class="pill evento"><span class="sq"></span>hoje</span>' : '<span></span>');
+    list.appendChild(li);
+  }
+  if(!any) list.innerHTML = '<li><span class="empty-note">Nenhum evento registrado neste mês.</span></li>';
+}
+
+function renderSpaceMap(){
+  const el = document.getElementById('spaceMap');
+  const map = occupancyMap();
+  const spaces = spacesInMonth();
+  el.innerHTML = '';
+  if(!spaces.length){ el.innerHTML = '<div class="empty-note">Nenhum espaço com atividade neste mês.</div>'; return; }
+  spaces.forEach(nome=>{
+    const dias = map[nome] || {};
+    let status='livre'; let count=0;
+    Object.values(dias).forEach(c=>{ count++; if(statusRank(c.status)>statusRank(status)) status=c.status; });
+    const label = status==='manutencao' ? 'Manutenção' : 'Em uso';
+    const pill = '<span class="pill ' + (status==='manutencao'?'manutencao':'evento') + '"><span class="sq"></span>' + label + ' · ' + count + ' dia(s)</span>';
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = '<span>' + nome + '</span>' + pill;
+    el.appendChild(row);
+  });
+}
+
+function renderOccGrid(){
+  const grid = document.getElementById('occGrid');
+  const nd = daysInMonth(YEAR, currentMonth);
+  const spaces = spacesInMonth();
+  const map = occupancyMap();
+  grid.style.gridTemplateColumns = '150px repeat(' + nd + ', minmax(28px, 1fr))';
+  grid.style.minWidth = (150 + nd*30) + 'px';
+  grid.innerHTML = '';
+
+  const corner = document.createElement('div');
+  corner.className = 'corner head';
+  corner.textContent = '';
+  grid.appendChild(corner);
+  for(let dia=1; dia<=nd; dia++){
+    const w = weekdayOf(currentMonth, dia);
+    const h = document.createElement('div');
+    h.className = 'head' + ((w===0||w===6)?' weekend':'') + (isToday(currentMonth,dia)?' today':'');
+    h.innerHTML = '<span class="dn">' + dia + '</span>' + WD_ABR[w][0];
+    grid.appendChild(h);
+  }
+  if(!spaces.length){
+    const msg = document.createElement('div');
+    msg.style.gridColumn = '1 / -1';
+    msg.className = 'empty-note';
+    msg.style.padding = '16px';
+    msg.textContent = 'Nenhum espaço com atividade neste mês.';
+    grid.appendChild(msg);
+    return;
+  }
+  spaces.forEach(nome=>{
+    const label = document.createElement('div');
+    label.className = 'rowlabel';
+    label.textContent = nome;
+    grid.appendChild(label);
+    for(let dia=1; dia<=nd; dia++){
+      const w = weekdayOf(currentMonth, dia);
+      const cell = map[nome] && map[nome][dia];
+      const div = document.createElement('div');
+      const status = cell ? cell.status : 'livre';
+      div.className = 'occ-cell ' + status + ((w===0||w===6)?' weekend':'') + (isToday(currentMonth,dia)?' today':'') + (cell?'':' empty');
+      if(cell){
+        const titulos = [...cell.titulos].join(', ');
+        div.title = String(dia).padStart(2,'0') + '/' + String(currentMonth).padStart(2,'0') + ' · ' + nome + ' — ' + titulos;
+      }
+      grid.appendChild(div);
+    }
+  });
+}
+
+function renderEventos(){
+  const table = document.getElementById('eventosTable');
+  const evs = aggregatedEvents();
+  let head = '<thead><tr><th>Evento</th><th>Espaço(s)</th><th>Datas</th><th>Tipo</th><th>Contato</th></tr></thead>';
+  let body = '<tbody>';
+  if(!evs.length){
+    body += '<tr><td colspan="5" class="dim">Nenhum evento registrado neste mês.</td></tr>';
+  } else {
+    evs.forEach(e=>{
+      const dias = [...e.dias].sort((a,b)=>a-b);
+      const range = dias.length===1
+        ? String(dias[0]).padStart(2,'0') + '/' + String(currentMonth).padStart(2,'0')
+        : String(dias[0]).padStart(2,'0') + '–' + String(dias[dias.length-1]).padStart(2,'0') + '/' + String(currentMonth).padStart(2,'0');
+      const espacos = [...e.espacos].sort((a,b)=>spaceRank(a)-spaceRank(b)).join(', ');
+      const tipo = e.status==='manutencao'
+        ? '<span class="pill manutencao"><span class="sq"></span>Manutenção</span>'
+        : '<span class="pill evento"><span class="sq"></span>Evento</span>';
+      body += '<tr><td class="cell-name">' + e.titulo + '</td><td>' + espacos + '</td><td class="hour">' + range
+        + '</td><td>' + tipo + '</td><td class="dim">' + (e.contato || '—') + '</td></tr>';
+    });
+  }
+  body += '</tbody>';
+  table.innerHTML = head + body;
+}
+
+function renderIndicadores(){
+  const nd = daysInMonth(YEAR, currentMonth);
+  const map = occupancyMap();
+  const spaces = spacesInMonth();
+  // ocupação por espaço = dias ocupados / dias do mês
+  const occEl = document.getElementById('occBySpace');
+  if(!spaces.length){ occEl.innerHTML = '<div class="empty-note">Sem dados neste mês.</div>'; }
+  else {
+    occEl.innerHTML = spaces.map(nome=>{
+      const dias = Object.keys(map[nome]||{}).length;
+      const pct = Math.round(dias/nd*100);
+      return '<div class="bar-row"><span>' + nome + '</span><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div><span class="val tabular">' + pct + '%</span></div>';
+    }).join('');
+  }
+  // resumo do mês
+  const recs = monthRecords();
+  const evs = aggregatedEvents().filter(e=>e.status==='evento');
+  const manutDias = new Set(recs.filter(r=>r.status==='manutencao').map(r=>r.dia)).size;
+  const diasAtiv = new Set(recs.map(r=>r.dia)).size;
+  const livres = nd - diasAtiv;
+  document.getElementById('monthSummary').innerHTML =
+    '<div class="bar-row" style="grid-template-columns:1fr auto"><span>Eventos distintos</span><span class="val tabular">' + evs.length + '</span></div>'
+    + '<div class="bar-row" style="grid-template-columns:1fr auto"><span>Dias com atividade</span><span class="val tabular">' + diasAtiv + ' / ' + nd + '</span></div>'
+    + '<div class="bar-row" style="grid-template-columns:1fr auto"><span>Dias de manutenção</span><span class="val tabular">' + manutDias + '</span></div>'
+    + '<div class="bar-row" style="grid-template-columns:1fr auto"><span>Dias totalmente livres</span><span class="val tabular">' + livres + '</span></div>'
+    + '<div class="bar-row" style="grid-template-columns:1fr auto"><span>Espaços utilizados</span><span class="val tabular">' + spaces.length + '</span></div>';
+  // ano
+  const yc = document.getElementById('yearChart');
+  const maxDias = Math.max(1, ...months.map(m=> new Set(byMonth[m].map(r=>r.dia)).size));
+  yc.innerHTML = '';
+  for(let m=1; m<=12; m++){
+    const recsM = byMonth[m] || [];
+    const dias = new Set(recsM.map(r=>r.dia)).size;
+    const pct = Math.round(dias/maxDias*100);
+    const isCur = m===currentMonth;
+    yc.innerHTML += '<div class="bar-row"><span style="' + (isCur?'font-weight:800;color:var(--brand)':'') + '">' + MESES[m-1] + '</span>'
+      + '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;' + (isCur?'':'opacity:.55') + '"></div></div>'
+      + '<span class="val tabular">' + dias + 'd</span></div>';
+  }
+}
+
+function renderAll(){
+  document.getElementById('periodSub').textContent = MESES[currentMonth-1] + ' de ' + YEAR;
+  renderMonthSwitch();
+  renderInsight();
+  renderKPIs();
+  renderAgenda();
+  renderSpaceMap();
+  renderOccGrid();
+  renderEventos();
+  renderIndicadores();
+}
+
+document.getElementById('tabnav').addEventListener('click', e=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  document.querySelectorAll('#tabnav button').forEach(b=>b.setAttribute('aria-current', b===btn));
+  const view = btn.dataset.view;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+view).classList.add('active');
+  const titles = {resumo:'Resumo do Mês', ocupacao:'Mapa de Ocupação', eventos:'Eventos & Contatos', indicadores:'Indicadores'};
+  document.getElementById('pageTitle').textContent = titles[view];
+});
+
+loadData();
+if(CONFIG.REFRESH_MS > 0){
+  refreshTimer = setInterval(()=>{ if(!document.hidden) loadData(); }, CONFIG.REFRESH_MS);
+}
+</script>
+</body>
+</html>
