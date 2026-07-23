@@ -239,7 +239,6 @@
 
     <section class="view active" id="view-resumo">
       <div class="card insight" id="insightBanner"></div>
-      <div class="grid kpi-row" id="kpiRow"></div>
       <div class="grid two-col">
         <div class="card">
           <h3>Agenda da semana</h3>
@@ -531,7 +530,9 @@ function weekDays(){
   const out = [];
   for(let i=0; i<7; i++){
     const d = addDays(weekStart, i);
-    out.push({date:d, mes:d.getMonth()+1, dia:d.getDate(), inYear:d.getFullYear()===YEAR, records:recordsForDate(d)});
+    // manutenção é pontual: não entra no resumo da semana (só eventos)
+    const recs = recordsForDate(d).filter(r=> r.status !== 'manutencao');
+    out.push({date:d, mes:d.getMonth()+1, dia:d.getDate(), inYear:d.getFullYear()===YEAR, records:recs});
   }
   return out;
 }
@@ -648,53 +649,22 @@ function weekNextEvent(){
 
 function renderInsight(){
   const el = document.getElementById('insightBanner');
-  const evsTitulos = new Set(weekRecords().filter(r=>r.status==='evento').map(r=>r.titulo));
+  const recs = weekRecords();
+  const evsTitulos = new Set(recs.map(r=>r.titulo));
+  const espacos = new Set(recs.map(r=>r.espaco)).size;
   const nx = weekNextEvent();
   const nextLine = nx
     ? (isCurrentWeek() ? 'A seguir' : 'Primeiro evento') + ': <strong>' + nx.titulo + '</strong> · '
         + String(nx.dia).padStart(2,'0') + '/' + String(nx.mes).padStart(2,'0') + ' · ' + nx.espaco
     : 'Nenhum evento registrado nesta semana.';
-  const manutDays = new Set(weekRecords().filter(r=>r.status==='manutencao').map(r=>r.mes+'-'+r.dia)).size;
-  const pill = manutDays
-    ? '<span class="pill manutencao"><span class="sq"></span>' + manutDays + ' dia(s) de manutenção</span>'
-    : '<span class="pill livre"><span class="sq"></span>Sem manutenção prevista</span>';
   const titulo = 'Semana de ' + weekLabel().replace(' – ',' a ').replace('–',' a ') + ' — ' + evsTitulos.size + ' evento(s)'
     + (isCurrentWeek() ? ' · semana atual' : '');
+  const pill = evsTitulos.size
+    ? '<span class="pill evento"><span class="sq"></span>' + espacos + ' espaço(s) em uso</span>'
+    : '<span class="pill livre"><span class="sq"></span>Semana livre</span>';
   el.innerHTML = '<div class="insight-row"><div>'
     + '<div class="insight-title">' + titulo + '</div>'
     + '<div class="insight-next">' + nextLine + '</div></div>' + pill + '</div>';
-}
-
-function renderKPIs(){
-  const days = weekDays();
-  const recs = weekRecords();
-  const evs = new Set(recs.filter(r=>r.status==='evento').map(r=>r.titulo)).size;
-  const diasAtiv = days.filter(d=> d.records.length).length;
-  const espacos = new Set(recs.map(r=>r.espaco)).size;
-  const manutDias = new Set(recs.filter(r=>r.status==='manutencao').map(r=>r.mes+'-'+r.dia)).size;
-  const hojeDia = days.find(d=> isToday(d.mes, d.dia));
-  let quinto;
-  if(hojeDia){
-    const n = new Set(hojeDia.records.map(r=>r.titulo)).size;
-    quinto = {num:n, label:'Atividades hoje', cls: n ? 'accent-alerta' : 'accent-livre'};
-  } else {
-    quinto = {num: 7 - diasAtiv, label:'Dias livres', cls:'accent-livre'};
-  }
-  const kpis = [
-    {num: evs, label:'Eventos na semana', cls:'accent-evento'},
-    {num: diasAtiv + ' / 7', label:'Dias com atividade', cls:'accent-neutral'},
-    {num: espacos, label:'Espaços utilizados', cls:'accent-livre'},
-    {num: manutDias, label:'Dias de manutenção', cls: manutDias ? 'accent-manut' : 'accent-livre'},
-    quinto,
-  ];
-  const row = document.getElementById('kpiRow');
-  row.innerHTML = '';
-  kpis.forEach(k=>{
-    const d = document.createElement('div');
-    d.className = 'card kpi ' + k.cls;
-    d.innerHTML = '<div class="num tabular">' + k.num + '</div><div class="label">' + k.label + '</div>';
-    row.appendChild(d);
-  });
 }
 
 function renderAgenda(){
@@ -742,7 +712,6 @@ function renderSpaceMap(){
 
 function renderResumo(){
   renderInsight();
-  renderKPIs();
   renderAgenda();
   renderSpaceMap();
 }
